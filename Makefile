@@ -42,10 +42,10 @@ gradeall:
 	bash scripts/grade.sh all
 
 ziplab1:
-	zip -r lab1-answer.zip src/straightline/slp.*
+	zip -j lab1-answer.zip src/straightline/slp.*
 
 ziplab2:
-	zip lab2-answer.zip src/tiger/lex/tiger.lex src/tiger/lex/scanner.h
+	zip  lab2-answer.zip src/tiger/lex/tiger.lex src/tiger/lex/scanner.h
 
 ziplab3:
 	zip lab3-answer.zip src/tiger/parse/tiger.y
