@@ -14,7 +14,6 @@ Table *A::CompoundStm::Interp(Table *t) const {
 
 int A::AssignStm::MaxArgs() const {
   // TODO: put your code here (lab1).
-
 }
 
 Table *A::AssignStm::Interp(Table *t) const {
@@ -29,7 +28,6 @@ int A::PrintStm::MaxArgs() const {
 
 Table *A::PrintStm::Interp(Table *t) const {
   // TODO: put your code here (lab1).
-  
 }
 
 int IdExp::MaxArgs() const {
