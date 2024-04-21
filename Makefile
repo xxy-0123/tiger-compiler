@@ -60,6 +60,7 @@ ziplab4:
     src/tiger/parse/tiger.y \
     src/tiger/lex/tiger.lex \
     src/tiger/lex/scanner.h \
+    src/tiger/semant/semant.h \
     src/tiger/semant/semant.cc
 
 zipclean:
