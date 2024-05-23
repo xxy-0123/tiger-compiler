@@ -7,6 +7,8 @@
 
 #include "tiger/frame/temp.h"
 #include "tiger/translate/tree.h"
+#include "tiger/codegen/assem.h"
+
 
 namespace frame {
 
@@ -69,7 +71,8 @@ protected:
 class Access {
 public:
   /* TODO: Put your lab5 code here */
-
+  
+  /* End for lab5 code */
   
   virtual ~Access() = default;
   
@@ -78,6 +81,7 @@ public:
 class Frame {
   /* TODO: Put your lab5 code here */
 
+  /* End for lab5 code */
 };
 
 /**
@@ -87,6 +91,17 @@ class Frame {
 class Frag {
 public:
   virtual ~Frag() = default;
+
+  enum OutputPhase {
+    Proc,
+    String,
+  };
+
+  /**
+   *Generate assembly for main program
+   * @param out FILE object for output assembly file
+   */
+  virtual void OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const = 0;
 };
 
 class StringFrag : public Frag {
@@ -96,6 +111,8 @@ public:
 
   StringFrag(temp::Label *label, std::string str)
       : label_(label), str_(std::move(str)) {}
+
+  void OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const override;
 };
 
 class ProcFrag : public Frag {
@@ -104,12 +121,14 @@ public:
   Frame *frame_;
 
   ProcFrag(tree::Stm *body, Frame *frame) : body_(body), frame_(frame) {}
+
+  void OutputAssem(FILE *out, OutputPhase phase, bool need_ra) const override;
 };
 
 class Frags {
 public:
   Frags() = default;
-  void PushBack(Frag *frag) { frags_.push_back(frag); }
+  void PushBack(Frag *frag) { frags_.emplace_back(frag); }
   const std::list<Frag*> &GetList() { return frags_; }
 
 private:
