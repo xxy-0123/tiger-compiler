@@ -91,7 +91,7 @@ public:
   explicit InRegAccess(temp::Temp *reg) : reg(reg) {}
   /* TODO: Put your lab5 code here */
   tree::Exp *ToExp(tree::Exp *framePtr) const override {
-  
+    return new tree::TempExp(reg);
   }
   /* End for lab5 code */
 };
@@ -111,6 +111,12 @@ public:
   }
   frame::Access *AllocLocal(bool escape) override {
     /* TODO: Put your lab5 code here */
+    if(escape){
+      offset-=8;
+      // return new frame::InFrameAccess(offset);
+      return new frame::InFrameAccess(offset);
+    }
+    else return new frame::InRegAccess(temp::TempFactory::NewTemp());
   }
   void AllocOutgoSpace(int size) override {
     /* TODO: Put your lab5 code here */
