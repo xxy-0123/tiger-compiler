@@ -28,7 +28,10 @@ temp::TempList *X64RegManager::ReturnSink() {
     /* TODO: Put your lab5 code here */
 }
 
-int X64RegManager::WordSize() { /* TODO: Put your lab5 code here */ }
+int X64RegManager::WordSize() { 
+  /* TODO: Put your lab5 code here */ 
+  return 8;
+}
 
 temp::Temp *X64RegManager::FramePointer() { /* TODO: Put your lab5 code here */ }
 
@@ -49,13 +52,33 @@ public:
 
   explicit InRegAccess(temp::Temp *reg) : reg(reg) {}
   /* TODO: Put your lab5 code here */
-
+  return new tree::TempExp(reg);
   /* End for lab5 code */
 };
 
 class X64Frame : public Frame {
   /* TODO: Put your lab5 code here */
 
+  X64Frame(temp::Label *name, std::list<frame::Access *> *formals)
+      : Frame(8, 0, name, formals), view_shift(nullptr) {}
+
+  [[nodiscard]] std::string GetLabel() const override { return name_->Name(); }
+  [[nodiscard]] temp::Label *Name() const override { return name_; }
+  [[nodiscard]] std::list<frame::Access *> *Formals() const override {
+    return formals_;
+  }
+  frame::Access *AllocLocal(bool escape) override {
+    /* TODO: Put your lab5 code here */
+    if(escape){
+      offset-=8;
+      // return new frame::InFrameAccess(offset);
+      return new frame::InFrameAccess(offset);
+    }
+    else return new frame::InRegAccess(temp::TempFactory::NewTemp());
+  }
+  void AllocOutgoSpace(int size) override {
+    /* TODO: Put your lab5 code here */
+  }
   /* End for lab5 code */
 };
 
