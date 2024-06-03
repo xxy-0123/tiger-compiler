@@ -82,7 +82,7 @@ class Frame {
   /* TODO: Put your lab5 code here */
 
 public:
-  std::list<frame::Access *> *formals_;
+  std::list<frame::Access *> formals_;
   virtual std::string GetLabel() const =0;
   virtual temp::Label *Name() const =0;
   virtual std::list<frame::Access *> *Formals() const =0;

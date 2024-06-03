@@ -116,36 +116,17 @@ letter [a-zA-Z]
   begin(StartCondition__::COMMENT);
 }
 <COMMENT>
-"/*"      {
-  adjust();
-  comment_level_++;
+"/*"      {adjust();comment_level_++;}
+<COMMENT>
+"*/"      {adjust();if(comment_level_ >= 2){comment_level_--;}else{begin(StartCondition__::INITIAL);}
 }
 <COMMENT>
-"*/"      {
-  adjust();
-  if(comment_level_ >= 2){comment_level_--;}
-  else{begin(StartCondition__::INITIAL);}
-}
+[a]      {adjust();}
 <COMMENT>
-[a]      {
-  adjust();
-}
-<COMMENT>
-[^a]     {
-  adjust();
-}
+[^a]     {adjust();}
 
-"\""            { // 开始字符串
-  adjust();
-  string_buf_="";
-  begin(StartCondition__::STR);
-}
-<STR>"\""       { // 结束字符串
-  adjustStr();
-  setMatched(string_buf_);
-  begin(StartCondition__::INITIAL);
-  return Parser::STRING;
-}
+"\""            { // 开始字符串  adjust();  string_buf_="";  begin(StartCondition__::STR);}
+<STR>"\""       { // 结束字符串  adjustStr();  setMatched(string_buf_);  begin(StartCondition__::INITIAL);  return Parser::STRING;}
 <STR>[[:alnum:]]      {
   adjustStr(); 
   string_buf_+=matched(); // 将转义字符转换为实际字符加入字符串缓冲区

@@ -65,7 +65,11 @@ public:
   }
   [[nodiscard]] Cx UnCx(err::ErrorMsg *errormsg) const override {
     /* TODO: Put your lab5 code here */
-
+    tree::CjumpStm *cjstm=new tree::CjumpStm(tree::NE_OP,exp_,new tree::ConstExp(0),nullptr,nullptr);
+    cjstm->true_label_=temp::LabelFactory::NewLabel();
+    cjstm->true_label_=temp::LabelFactory::NewLabel();
+    return tr::Cx(&(cjstm->true_label_), &(cjstm->false_label_), cjstm);
+    
   }
 };
 
@@ -128,15 +132,12 @@ public:
 
 void ProgTr::Translate() {
   /* TODO: Put your lab5 code here */
-  // absyn_tree_(std::move(absyn_tree)), errormsg_(std::move(errormsg)),
-  //       main_level_(std::make_unique<Level>(
-  //           frame::NewFrame(temp::LabelFactory::NamedLabel("tigermain"),
-  //                           std::list<bool>()),
-  //           nullptr)),
-  //       tenv_(std::make_unique<env::TEnv>()),
-  //       venv_(std::make_unique<env::VEnv>()) {}
+
   FillBaseTEnv();
   FillBaseVEnv();
+  tr::ExpAndTy *exp_ty = absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(), nullptr, errormsg_.get());
+  frags->PushBack(new frame::ProcFrag(exp_ty->exp_->UnNx(), main_level_->frame_));
+  
   //temp::Label *label=temp::LabelFactory::NamedLabel("tigermain");
 
 }
@@ -239,7 +240,21 @@ tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                  tr::Level *level, temp::Label *label,
                                  err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
-
+  tree::ExpList *elist=new tree::ExpList();
+  for(auto *x : args_->GetList()){
+    tree::Exp *e=x->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
+    elist->Append(e);
+  }
+  env::FunEntry *entry = (env::FunEntry *)venv->Look(func_);
+  if(!entry->level_->parent_){}
+  tree::Exp *staticlink = new tree::TempExp(reg_manager->FramePointer());
+  while(level != entry->level_->parent_){
+    staticlink = level->frame_->formals_.front()->ToExp(staticlink);
+    level = level->parent_;
+  }
+  elist->Append(staticlink);
+  tr::Exp *e= new tr::ExExp(new tree::CallExp(new tree::NameExp(entry->label_), elist));
+  return new tr::ExpAndTy(e, entry->result_);
   /* End for lab5 code */
 }
 
@@ -313,7 +328,11 @@ tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                    tr::Level *level, temp::Label *label,      
                                    err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
-
+  tree::ExpList *elist=new tree::ExpList();
+  for (auto *x : fields_->GetList()){
+    tree::Exp *e=x->exp_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
+    elist->Append(e);
+  }
 }
 
 tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
