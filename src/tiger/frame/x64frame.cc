@@ -154,6 +154,7 @@ frame::Frame *NewFrame(temp::Label *name, std::list<bool> formals) {
 
 tree::Exp *ExternalCall(std::string_view s, tree::ExpList *args) {
     /* TODO: Put your lab5 code here */
+  return new tree::CallExp(new tree::NameExp(temp::LabelFactory::NamedLabel(s)), args);
 }
 
 
@@ -161,13 +162,29 @@ tree::Exp *ExternalCall(std::string_view s, tree::ExpList *args) {
 
 tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
 
-    printf("\n begin procEntryExit1\n");
+  int count = 0;
+  tree::Stm* s=new tree::ExpStm(new tree::ConstExp(0));
+  for(auto formal:frame->formals_)
+  {
+    if(count < 6){
+      s = new tree::SeqStm(s, 
+        new tree::MoveStm(formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
+          new tree::TempExp(reg_manager->GetRegister(count))));
+    }
+    else{
+      s = new tree::SeqStm(s, new tree::MoveStm(
+        formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
+          new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::TempExp(reg_manager->FramePointer()),new tree::ConstExp((frame->formals_.size()-count)*8)))));
+    }
+    count++;
+  }
+  return new tree::SeqStm(s, stm);
 }
 
-assem::InstrList *ProcEntryExit2(assem::InstrList body) { return nullptr; }
+assem::InstrList *ProcEntryExit2(assem::InstrList *body) { return nullptr; }
 
 assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   return nullptr;
 }
 
-} // namespace frame
+} // namespace frame这也很难

@@ -149,7 +149,7 @@ private:
 /* TODO: Put your lab5 code here */
 Frame *NewFrame(temp::Label *name,std::list<bool> formals);
 tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) ;
-assem::InstrList *ProcEntryExit2(assem::InstrList body) ;
+assem::InstrList *ProcEntryExit2(assem::InstrList *body) ;
 tree::Exp *ExternalCall(std::string_view s, tree::ExpList *args);
 assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList* body);
 /* End for lab5 code */
