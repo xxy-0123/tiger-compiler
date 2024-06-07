@@ -20,7 +20,7 @@ void CodeGen::Codegen() {
   auto *list = new assem::InstrList();
   for (auto stm : traces_->GetStmList()->GetList())
     stm->Munch(*list,fs_);
-  assem_instr_ =std::make_unique<AssemInstr>(frame::ProcEntryExit2(*list));
+  frame::ProcEntryExit2(assem_instr_->GetInstrList());
   /* End for lab5 code */
 }
 

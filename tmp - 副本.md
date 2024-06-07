@@ -1,3 +1,4 @@
+```cpp
 #include "tiger/translate/translate.h"
 
 #include <tiger/absyn/absyn.h>
@@ -675,3 +676,6 @@ type::Ty *ArrayTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
 }
 
 } // namespace absyn啊啊啊啊好难
+
+```
+
