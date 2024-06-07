@@ -72,7 +72,6 @@ protected:
 class Access {
 public:
   /* TODO: Put your lab5 code here */
-
   virtual tree::Exp *ToExp(tree::Exp *framePtr) const = 0;
   virtual ~Access() = default;
   
@@ -90,7 +89,10 @@ public:
   int offset=0;
   virtual frame::Access *AllocLocal(bool escape)=0;
   virtual void AllocOutgoSpace(int size)=0;
-  Frame(int wordsize, int offset,temp::Label *name, std::list<frame::Access *> *formals);
+  Frame(int wordsize, int offset,temp::Label *name, std::list<frame::Access *> *formals){};
+  Frame(){}
+  virtual ~Frame(){}
+
 };
 
 /**
@@ -149,6 +151,7 @@ Frame *NewFrame(temp::Label *name,std::list<bool> formals);
 tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) ;
 assem::InstrList *ProcEntryExit2(assem::InstrList body) ;
 tree::Exp *ExternalCall(std::string_view s, tree::ExpList *args);
+assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList* body);
 /* End for lab5 code */
 
 } // namespace frame

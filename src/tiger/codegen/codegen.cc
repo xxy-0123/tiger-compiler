@@ -116,7 +116,7 @@ void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
     break;
   }      
   s_asm+=" `j0";
-  instr_list.Append(new assem::OperInstr(s_asm , nullptr, nullptr,  new assem::Targets(new std::vector<temp::Label *>(true_label_,false_label_))));
+  instr_list.Append(new assem::OperInstr(s_asm , nullptr, nullptr,  new assem::Targets(new std::vector<temp::Label *>{true_label_,false_label_})));
   /* End for lab5 code */
 }
 

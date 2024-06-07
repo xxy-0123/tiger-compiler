@@ -24,6 +24,10 @@ void SimpleVar::Traverse(esc::EscEnvPtr env, int depth) {
 
 }
 
+void VarExp::Traverse(esc::EscEnvPtr env, int depth) {
+    var_->Traverse(env, depth);
+}
+
 void FieldVar::Traverse(esc::EscEnvPtr env, int depth) {
   /* TODO: Put your lab5 code here */
   var_->Traverse(env,depth);
