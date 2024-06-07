@@ -632,4 +632,4 @@ type::Ty *ArrayTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
   return new type::ArrayTy(ty);
 }
 
-} // namespace absyn
+} // namespace absyn啊啊啊啊难死了
