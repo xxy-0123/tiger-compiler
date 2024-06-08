@@ -20,6 +20,7 @@ class Interpreter(object):
         self._fun_end = {}
         self._frame_size = {}
         self._scan_lines(filename)
+        # print("StateTable")
         self._state_table = StateTable(self._label_table, self._string_table, self._frame_size)
         self._instructions = []
         self._init_instructions()
@@ -73,6 +74,7 @@ class Interpreter(object):
                 elif line.endswith(':'):
                     # Store label in line_map
                     label = line[0:-1]
+                    # print("StateTable2")
                     self._label_table[label] = cursor
                     if len(last_label) > 0:
                         self._fun_end[last_label] = cursor - 1

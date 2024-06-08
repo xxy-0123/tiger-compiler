@@ -1,12 +1,44 @@
-
------------------var dev-------------------
- temp t101
------------------var dev-------------------
-
------------------var dev-------------------
- temp t102
------------------var dev-------------------
-
------------------var dev-------------------
- temp t103
------------------var dev-------------------
+---LetExp---
+---VarDec---
+---IntExp---
+---VarDec---
+---IntExp---
+---SeqExp---
+---IfExp---
+---OpExp---
+---VarExp---
+---SimpleVar---
+---VarExp---
+---SimpleVar---
+---VarExp---
+---SimpleVar---
+---VarExp---
+---SimpleVar---
+---IfExp---
+---OpExp---
+---VarExp---
+---SimpleVar---
+---VarExp---
+---SimpleVar---
+---VarExp---
+---SimpleVar---
+---VarExp---
+---SimpleVar---
+---ProcEntryExit1---
+-----Codegen-----
+-----LabelStm-----
+-----MoveStm-----
+-----MoveStm-----
+-----CjumpStm-----
+-----TempExp-----
+-----TempExp-----
+-----LabelStm-----
+-----MoveStm-----
+-----LabelStm-----
+-----ExpStm-----
+-----TempExp-----
+-----JumpStm-----
+-----LabelStm-----
+-----MoveStm-----
+-----JumpStm-----
+-----LabelStm-----

@@ -1,4 +1,8 @@
+#include <sstream>
+#include <string>
+#include <iostream>
 #include "tiger/frame/x64frame.h"
+
 
 extern frame::RegManager *reg_manager;
 
@@ -7,9 +11,24 @@ namespace frame {
 X64RegManager::X64RegManager() : RegManager() {
     /* TODO: Put your lab5 code here */
     //void Enter(Temp *t, std::string *s);
-    temp::Temp *temp_ = temp::TempFactory::NewTemp();
-    regs_.push_back(temp_);
-    temp_map_->Enter(temp_, new std::string ("%rax"));
+    // temp::Temp *temp_ = temp::TempFactory::NewTemp();
+    // regs_.push_back(temp_);
+    // temp_map_->Enter(temp_, new std::string ("%rax"));
+  const char* register_names[] = {
+    "%rax", "%rbx", "%rcx", "%rdx",
+    "%rsi", "%rdi", "%rbp", "%rsp",
+    "%r8", "%r9", "%r10", "%r11",
+    "%r12", "%r13", "%r14", "%r15"
+  };
+
+  for (int i = 0; i < 16; ++i) {
+    auto reg_temp = temp::TempFactory::NewTemp();
+    regs_.push_back(reg_temp);
+    temp_map_->Enter(reg_temp, new std::string(register_names[i]));
+  }
+
+  auto fake_fp_temp = temp::TempFactory::NewTemp();
+  regs_.push_back(fake_fp_temp);
 }
 
 temp::TempList *X64RegManager::Registers() {
@@ -109,8 +128,8 @@ class X64Frame : public Frame {
   /* TODO: Put your lab5 code here */
 public:
   //int offset=0;
-  X64Frame(temp::Label *name, std::list<frame::Access *> *formals)
-       : Frame(8, 0, name, formals) {}
+  // X64Frame(temp::Label *name, std::list<frame::Access *> *formals)
+  //      : Frame(8, 0, name, formals) {}
 
   [[nodiscard]] std::string GetLabel() const override { return name_->Name(); }
   [[nodiscard]] temp::Label *Name() const override { return name_; }
@@ -137,37 +156,69 @@ public:
 
 frame::Frame *NewFrame(temp::Label *name, std::list<bool> formals) {
     /* TODO: Put your lab5 code here */
-  auto formals_list = new std::list<frame::Access*>();
-  
-  int offset = -8;
-  for (bool escape : formals) {
-    if (escape) {
-      formals_list->push_back(new frame::InFrameAccess(offset));
-      offset -= 8;
-    } else {
-      formals_list->push_back(new frame::InRegAccess(temp::TempFactory::NewTemp()));
-    }
+  frame::X64Frame *newframe = new frame::X64Frame();
+  newframe->offset = -8;
+  for (auto escape : formals) {
+    frame::Access* access=newframe->AllocLocal(escape);
+    newframe->formals_.push_back(access);
   }
-
-  return new frame::X64Frame(name, formals_list);
+  newframe->name_ = name;
+  return newframe;
 }
 
 tree::Exp *ExternalCall(std::string_view s, tree::ExpList *args) {
     /* TODO: Put your lab5 code here */
+  return new tree::CallExp(new tree::NameExp(temp::LabelFactory::NamedLabel(s)), args);
 }
 
 
 /* End for lab5 code */
 
 tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
+  std::cout<<"---ProcEntryExit1---"<<std::endl;
 
-    printf("\n begin procEntryExit1\n");
+  int count = 0;
+  tree::Stm* s=new tree::ExpStm(new tree::ConstExp(0));
+  for(auto formal:frame->formals_)
+  {
+    if(count < 6){
+      s = new tree::SeqStm(s, 
+        new tree::MoveStm(formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
+          new tree::TempExp(reg_manager->GetRegister(count))));
+    }
+    else{
+      s = new tree::SeqStm(s, new tree::MoveStm(
+        formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
+          new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::TempExp(reg_manager->FramePointer()),new tree::ConstExp((frame->formals_.size()-count)*8)))));
+    }
+    count++;
+  }
+  return new tree::SeqStm(s, stm);
 }
 
-assem::InstrList *ProcEntryExit2(assem::InstrList body) { return nullptr; }
+assem::InstrList *ProcEntryExit2(assem::InstrList *body) { 
+  std::cout<<"---ProcEntryExit2---"<<std::endl;
+
+  temp::TempList *returnSink = reg_manager->ReturnSink();
+  body->Append(new assem::OperInstr("", nullptr, returnSink, nullptr));
+  return body; 
+  }
 
 assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
-  return nullptr;
+  std::cout<<"---ProcEntryExit3---"<<std::endl;
+    int size = -frame->offset - 8;
+    
+    std::ostringstream prolog;
+    prolog << frame->name_->Name() << ":\n";
+    prolog << ".set " << frame->name_->Name() << "_framesize, " << size << "\n";
+    prolog << "subq $" << -frame->offset << ", %rsp\n";
+
+    std::ostringstream epilog;
+    epilog << "addq $" << size << ", %rsp\n";
+    epilog << "retq\n";
+    
+    
+    return new assem::Proc(prolog.str(), body, epilog.str());
 }
 
-} // namespace frame
+} // namespace frame这也很难

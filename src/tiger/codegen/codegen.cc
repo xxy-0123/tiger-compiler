@@ -1,5 +1,5 @@
 #include "tiger/codegen/codegen.h"
-
+#include <iostream>
 #include <cassert>
 #include <sstream>
 #include <string_view>
@@ -15,12 +15,47 @@ constexpr int maxlen = 1024;
 
 namespace cg {
 
+void saveregs(assem::InstrList *list,std::vector<temp::Temp *> tmp_saved){
+  for(auto reg: reg_manager->CalleeSaves()->GetList()){
+    temp::Temp *tmp = temp::TempFactory::NewTemp();
+    tmp_saved.push_back(tmp);
+    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(tmp), new temp::TempList(reg)));
+  }
+}
+
+void restoreregs(assem::InstrList *list,std::vector<temp::Temp *> tmp_saved){
+  int i = 0;
+  for(auto reg: reg_manager->CalleeSaves()->GetList()){
+    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(reg), new temp::TempList(tmp_saved[i])));
+  }
+}
+
 void CodeGen::Codegen() {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----Codegen-----"<<std::endl;
+
   auto *list = new assem::InstrList();
+  std::vector<temp::Temp *> tmp_saved;
+  //saveregs(list,tmp_saved)
+  for(auto x: reg_manager->CalleeSaves()->GetList()){
+    temp::Temp *tmp = temp::TempFactory::NewTemp();
+    tmp_saved.push_back(tmp);
+    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(tmp), new temp::TempList(x)));
+  }
+  
   for (auto stm : traces_->GetStmList()->GetList())
     stm->Munch(*list,fs_);
-  assem_instr_ =std::make_unique<AssemInstr>(frame::ProcEntryExit2(*list));
+  
+  //restoreregs(list,tmp_saved)
+  int i = 0;
+  for(auto x: reg_manager->CalleeSaves()->GetList()){
+    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(x), new temp::TempList(tmp_saved[i++])));
+  }
+
+  //std::unique_ptr<AssemInstr> assem_instr_;
+  assem_instr_ = std::make_unique<AssemInstr>(list);
+
+  frame::ProcEntryExit2(assem_instr_->GetInstrList());
   /* End for lab5 code */
 }
 
@@ -41,6 +76,8 @@ namespace tree {
  * @return temp list to hold arguments
  */
 temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list, std::string_view fs) {
+  std::cout<<"-----ExpList-----"<<std::endl;
+
   temp::Temp *ret=temp::TempFactory::NewTemp();
   int num=exp_list_.size();
   auto tplist=new temp::TempList();
@@ -66,6 +103,8 @@ temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list, std::string_vie
 
 void SeqStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----SeqStm-----"<<std::endl;
+
   // SeqStm should not exist in codegen phase
   left_->Munch(instr_list,fs);
   right_->Munch(instr_list,fs);
@@ -74,6 +113,8 @@ void SeqStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void LabelStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----LabelStm-----"<<std::endl;
+
   instr_list.Append(new assem::LabelInstr(label_->Name(),label_));
   
   /* End for lab5 code */
@@ -81,6 +122,7 @@ void LabelStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void JumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----JumpStm-----"<<std::endl;
 
   instr_list.Append(new assem::OperInstr("jmp `j0" , nullptr, nullptr, new assem::Targets(jumps_)));
   /* End for lab5 code */
@@ -88,6 +130,8 @@ void JumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----CjumpStm-----"<<std::endl;
+
   auto right=right_->Munch(instr_list,fs);
   auto left=left_->Munch(instr_list,fs);
   instr_list.Append(new assem::OperInstr("cmpq `s0, `s1" , nullptr,new temp::TempList({right,left}),nullptr));
@@ -122,6 +166,8 @@ void CjumpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----MoveStm-----"<<std::endl;
+
   if (typeid(*dst_) == typeid(MemExp)) {
     MemExp* dst_mem = static_cast<MemExp*>(dst_);
     if (typeid(*dst_mem->exp_) == typeid(BinopExp)) {
@@ -155,12 +201,12 @@ void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
         temp::Temp *tmp1=e1->Munch(instr_list,fs); 
         temp::Temp *tmp2=e2->Munch(instr_list,fs); 
         instr_list.Append(new assem::MoveInstr(
-          "movq `(s0), `s1" , 
+          "movq (`s0), `s1" , 
           nullptr, 
           new temp::TempList({tmp2,tmp0})
           ));
         instr_list.Append(new assem::MoveInstr(
-          "movq `s0, `(s1)" , 
+          "movq `s0, (`s1)" , 
           nullptr, 
           new temp::TempList({tmp0,tmp1})
           ));
@@ -171,7 +217,7 @@ void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
         temp::Temp *tmp1=e1->Munch(instr_list,fs); 
         temp::Temp *tmp2=e2->Munch(instr_list,fs); 
         instr_list.Append(new assem::MoveInstr(
-          "movq `s0, `(s1)" , 
+          "movq `s0, (`s1)" , 
           nullptr, 
           new temp::TempList({tmp2,tmp1})
           ));
@@ -198,12 +244,16 @@ void MoveStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 void ExpStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----ExpStm-----"<<std::endl;
+
   exp_->Munch(instr_list,fs);
   /* End for lab5 code */
 }
 
 temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----BinopExp-----"<<std::endl;
+
   temp::Temp *l=left_->Munch(instr_list,fs); 
   temp::Temp *r=right_->Munch(instr_list,fs); 
   temp::Temp *ret=l;
@@ -242,10 +292,12 @@ temp::Temp *BinopExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----MemExp-----"<<std::endl;
+
   temp::Temp *ret=temp::TempFactory::NewTemp();
   temp::Temp *exp=exp_->Munch(instr_list,fs); 
   instr_list.Append(new assem::MoveInstr(
-          "movq `(s0), `d0" , 
+          "movq (`s0), `d0" , 
           new temp::TempList({ret}), 
           new temp::TempList({exp})
           ));
@@ -255,12 +307,16 @@ temp::Temp *MemExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *TempExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----TempExp-----"<<std::endl;
+
   return temp_;
   /* End for lab5 code */
 }
 
 temp::Temp *EseqExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----EseqExp-----"<<std::endl;
+
   // EseqExp should not exist in codegen phase
   return nullptr;
   /* End for lab5 code */
@@ -268,6 +324,8 @@ temp::Temp *EseqExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *NameExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----NameExp-----"<<std::endl;
+
   std::string s_asm="leaq "+name_->Name()+"(%rip), `d0";
   temp::Temp *ret=temp::TempFactory::NewTemp();
   instr_list.Append(new assem::OperInstr(s_asm , new temp::TempList({ret}), nullptr, nullptr));
@@ -277,7 +335,9 @@ temp::Temp *NameExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
-  std::string s_asm="movq $"+std::to_string(consti_)+" `d0";
+  std::cout<<"-----ConstExp-----"<<std::endl;
+
+  std::string s_asm="movq $"+std::to_string(consti_)+", `d0";
   temp::Temp *ret=temp::TempFactory::NewTemp();
   instr_list.Append(new assem::MoveInstr(s_asm , new temp::TempList({ret}), nullptr));
   return ret;
@@ -286,6 +346,8 @@ temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 
 temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
+  std::cout<<"-----CallExp-----"<<std::endl;
+
   std::string s_asm="call "+((tree::NameExp *)fun_)->name_->Name();
   temp::Temp *ret=temp::TempFactory::NewTemp();
   instr_list.Append(new assem::OperInstr(s_asm , reg_manager->CallerSaves(),reg_manager->ArgRegs(), nullptr));
@@ -295,4 +357,4 @@ temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* End for lab5 code */
 }
 
-} // namespace tree
+} // namespace tree还有高手？
