@@ -80,14 +80,14 @@ temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list, std::string_vie
 
   temp::Temp *ret=temp::TempFactory::NewTemp();
   int num=exp_list_.size();
-  auto tplist=new temp::TempList();
+  auto *tplist=new temp::TempList();
   for(auto x :exp_list_){
     temp::Temp *local_ret=x->Munch(instr_list,fs);
     tplist->Append(local_ret);
-    if(num>=tplist->GetList().size()){
+    if(tplist->GetList().size()<=num){
       instr_list.Append(new assem::MoveInstr(
           "movq `s0, `d0" , 
-          new temp::TempList(reg_manager->ArgRegs()->NthTemp(tplist->GetList().size())), 
+          new temp::TempList(reg_manager->ArgRegs()->NthTemp(tplist->GetList().size()-1)), 
           new temp::TempList({local_ret})
           ));
     }
