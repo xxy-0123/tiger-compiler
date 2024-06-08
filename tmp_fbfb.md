@@ -158,7 +158,7 @@ namespace {
  */
 frame::ProcFrag *ProcEntryExit(tr::Level *level, tr::Exp *body) {
   /* TODO: Put your lab5 code here */
-  printf("\n begin procEntryExit\n");
+  printf("\n begin ProcEntryExit\n");
   // frame::ProcEntryExit1(level->frame_, body->UnNx());
   // return body->UnNx();
 }
