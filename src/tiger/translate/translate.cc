@@ -709,7 +709,9 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---TypeDec---"<<std::endl;
 
- return new tr::ExExp(new tree::ConstExp(0));
+  for (auto *x: types_->GetList())   
+    tenv->Enter(x->name_, new type::NameTy(x->name_, x->ty_->Translate(tenv, errormsg)));
+  return new tr::ExExp(new tree::ConstExp(0));
 }
 
 type::Ty *NameTy::Translate(env::TEnvPtr tenv, err::ErrorMsg *errormsg) const {
