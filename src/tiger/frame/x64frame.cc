@@ -105,7 +105,7 @@ public:
 
   explicit InFrameAccess(int offset) : offset(offset) { }
   tree::Exp *ToExp(tree::Exp *framePtr) const override{
-    return new tree::MemExp(new tree::BinopExp(tree::BinOp::PLUS_OP,framePtr,new tree::ConstExp(offset)));
+    return new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,framePtr,new tree::ConstExp(offset)));
   }
   /* End for lab5 code */
 };
@@ -179,12 +179,16 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
 
   int cnt = 0;
   tree::Stm* s=new tree::ExpStm(new tree::ConstExp(0));
+  auto argRegs = reg_manager->ArgRegs()->GetList();
+  auto regsize = argRegs.size();
+  auto regIter = argRegs.begin();
   for(auto formal:frame->formals_)
   {
-    if(cnt < 6){
+    if(cnt < regsize){
       s = new tree::SeqStm(s, 
         new tree::MoveStm(formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
-          new tree::TempExp(reg_manager->GetRegister(cnt))));
+          new tree::TempExp(*regIter)));
+      regIter++;
     }
     else{
       s = new tree::SeqStm(s, new tree::MoveStm(

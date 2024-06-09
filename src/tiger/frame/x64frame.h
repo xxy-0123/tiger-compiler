@@ -1,7 +1,3 @@
-//
-// Created by wzl on 2021/10/12.
-//
-
 #ifndef TIGER_COMPILER_X64FRAME_H
 #define TIGER_COMPILER_X64FRAME_H
 
