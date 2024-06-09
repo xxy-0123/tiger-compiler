@@ -27,8 +27,8 @@ X64RegManager::X64RegManager() : RegManager() {
     temp_map_->Enter(reg_temp, new std::string(register_names[i]));
   }
 
-  auto fake_fp_temp = temp::TempFactory::NewTemp();
-  regs_.push_back(fake_fp_temp);
+  // auto fake_fp_temp = temp::TempFactory::NewTemp();
+  // regs_.push_back(fake_fp_temp);
 }
 
 temp::TempList *X64RegManager::Registers() {
@@ -92,11 +92,11 @@ int X64RegManager::WordSize() {
   return 8;
 }
 
-temp::Temp *X64RegManager::FramePointer() { return regs_[FP];/* TODO: Put your lab5 code here */ }
+temp::Temp *X64RegManager::FramePointer() { return regs_[RBP];/* TODO: Put your lab5 code here */ }
 
-temp::Temp *X64RegManager::StackPointer() { return regs_[SP];/* TODO: Put your lab5 code here */ }
+temp::Temp *X64RegManager::StackPointer() { return regs_[RSP];/* TODO: Put your lab5 code here */ }
 
-temp::Temp *X64RegManager::ReturnValue() { return regs_[RV];/* TODO: Put your lab5 code here */ }
+temp::Temp *X64RegManager::ReturnValue() { return regs_[RAX];/* TODO: Put your lab5 code here */ }
 
 class InFrameAccess : public Access {
   /* TODO: Put your lab5 code here */
@@ -105,7 +105,7 @@ public:
 
   explicit InFrameAccess(int offset) : offset(offset) { }
   tree::Exp *ToExp(tree::Exp *framePtr) const override{
-    return new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,framePtr,new tree::ConstExp(offset)));
+    return new tree::MemExp(new tree::BinopExp(tree::BinOp::PLUS_OP,framePtr,new tree::ConstExp(offset)));
   }
   /* End for lab5 code */
 };
@@ -139,10 +139,10 @@ public:
   frame::Access *AllocLocal(bool escape) override {
     /* TODO: Put your lab5 code here */
     if(escape){
-      auto infAccess= new frame::InFrameAccess(offset);
+      auto fAccess= new frame::InFrameAccess(offset);
       offset-=8;
       // return new frame::InFrameAccess(offset);
-      return infAccess;
+      return fAccess;
     }
     else return new frame::InRegAccess(temp::TempFactory::NewTemp());
   }
