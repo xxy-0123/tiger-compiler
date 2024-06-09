@@ -193,26 +193,25 @@ type::Ty *IfExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   type::Ty *ty_test = test_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   if(typeid(*ty_test)!=typeid(type::IntTy)){
     errormsg->Error(pos_, "test_ required");
-    return type::IntTy::Instance();
+    return type::VoidTy::Instance();
   }
+  type::Ty *ty_th = then_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   if(elsee_){
-    type::Ty *ty_th = then_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
     type::Ty *ty_el = elsee_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
-      if(typeid(*ty_th)!=typeid(*ty_el)){
-        errormsg->Error(pos_, "then exp and else exp type mismatch");
-        return type::IntTy::Instance();
+      if(ty_th->IsSameType(ty_el)){
+        return ty_th;
       }
-      return ty_el;
+      errormsg->Error(pos_, "then exp and else exp type mismatch");
+      return type::VoidTy::Instance();
   }
   else{
-    type::Ty *ty_th = then_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
     if(typeid(*ty_th)!=typeid(type::VoidTy)){
       errormsg->Error(pos_, "if-then exp's body must produce no value");
       return type::VoidTy::Instance();
     }
     else return ty_th;
   }
-  return type::IntTy::Instance();
+  return type::VoidTy::Instance();
 }
 
 type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -223,7 +222,7 @@ type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
     errormsg->Error(pos_, "test_ required");
     return type::IntTy::Instance();
   }
-  type::Ty *ty_bd = body_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
+  type::Ty *ty_bd = body_->SemAnalyze(venv, tenv, labelcount+1, errormsg)->ActualTy();
   if(typeid(*ty_bd)!=typeid(type::VoidTy)){
     errormsg->Error(pos_, "while body must produce no value");
     return type::VoidTy::Instance();
@@ -270,7 +269,7 @@ type::Ty *ForExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
     errormsg->Error(hi_->pos_, "for exp's range type is not integer");
   }
   venv->BeginScope();
-  venv->Enter(var_, new env::VarEntry(type::IntTy::Instance(), true));
+  venv->Enter(var_, new env::VarEntry(ty_lo, true));
   body_->SemAnalyze(venv, tenv, labelcount + 1, errormsg);
   venv->EndScope();
   return type::VoidTy::Instance(); 

@@ -250,7 +250,7 @@ tr::ExpAndTy *NilExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---NilExp---"<<std::endl;
 
-  return new tr::ExpAndTy(new tr::ExExp(nullptr),type::NilTy::Instance());
+  return new tr::ExpAndTy(new tr::ExExp(new tree::ConstExp(0)),type::NilTy::Instance());
 }
 
 tr::ExpAndTy *IntExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -505,14 +505,14 @@ tr::ExpAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   std::cout<<"---WhileExp---"<<std::endl;
 
   auto *tst_translated=test_->Translate(venv, tenv, level, label, errormsg);
-  tr::ExpAndTy *body_translated = body_->Translate(venv, tenv, level, label, errormsg);
+  temp::Label *d_l = temp::LabelFactory::NewLabel();
+  tr::ExpAndTy *body_translated = body_->Translate(venv, tenv, level, d_l, errormsg);
   temp::Label *b_l = temp::LabelFactory::NewLabel();
   temp::Label *t_l = temp::LabelFactory::NewLabel();
-  temp::Label *d_l = temp::LabelFactory::NewLabel();
   auto cx=tst_translated->exp_->UnCx(errormsg);
   *(cx.trues_)=b_l;
   *(cx.falses_)=d_l;
-  std::vector<temp::Label *> *j = new std::vector<temp::Label *>;
+  std::vector<temp::Label *> *j = new std::vector<temp::Label *>{t_l};
   tr::Exp *exp=new tr::NxExp(
       new tree::SeqStm(new tree::LabelStm(t_l),
         new tree::SeqStm(cx.stm_,
@@ -729,8 +729,13 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---TypeDec---"<<std::endl;
 
-  for (auto *x: types_->GetList())   
-    tenv->Enter(x->name_, new type::NameTy(x->name_, x->ty_->Translate(tenv, errormsg)));
+  auto type_list = types_->GetList();
+  for (auto *x : type_list) 
+    tenv->Enter(x->name_, new type::NameTy(x->name_, nullptr));
+  for (auto *x  : type_list) {
+    type::NameTy *namety = (type::NameTy *) tenv->Look(x->name_);
+    namety->ty_ = x->ty_->Translate(tenv, errormsg);
+  }
   return new tr::ExExp(new tree::ConstExp(0));
 }
 
