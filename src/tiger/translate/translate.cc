@@ -205,13 +205,17 @@ tr::ExpAndTy *FieldVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---FieldVar---"<<std::endl;
   tr::ExpAndTy *var = var_->Translate(venv, tenv, level, label, errormsg);
-  auto ventry = (env::VarEntry*)venv->Look(sym_);
-  tree::Exp *exp = new tree::TempExp(reg_manager->FramePointer());
-  while(ventry->access_->level_!=level){
-    exp=level->frame_->formals_.front()->ToExp(exp);
-    level=level->parent_;
+  int cnt=0;
+  for(auto *x:((type::RecordTy*)var->ty_)->fields_->GetList()){
+    if(x->name_==sym_){
+      tr::Exp *exp = new tr::ExExp(new tree::MemExp(
+        new tree::BinopExp(tree::PLUS_OP,new tree::ConstExp(cnt*8),var->exp_->UnEx())
+      ));
+      return new tr::ExpAndTy(exp, x->ty_->ActualTy());
+      
+    }cnt++;
   }
-  return new tr::ExpAndTy(new tr::ExExp(ventry->access_->access_->ToExp(exp)),ventry->ty_->ActualTy());
+  return new tr::ExpAndTy(nullptr, type::IntTy::Instance());
 }
 
 tr::ExpAndTy *SubscriptVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -222,8 +226,13 @@ tr::ExpAndTy *SubscriptVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
   tr::ExpAndTy *var = var_->Translate(venv, tenv, level, label, errormsg);
   tr::ExpAndTy *subscript = subscript_->Translate(venv, tenv, level, label, errormsg);
-  tr::Exp *exp_mem=new tr::ExExp(new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,var->exp_->UnEx(),new tree::BinopExp(tree::MUL_OP,subscript->exp_->UnEx(),new tree::ConstExp(8)))));
-  return new tr::ExpAndTy(exp_mem,var->ty_->ActualTy());
+  tr::Exp *exp_mem=new tr::ExExp(new tree::MemExp(
+    new tree::BinopExp(tree::PLUS_OP,
+      var->exp_->UnEx(),
+      new tree::BinopExp(tree::MUL_OP,
+        subscript->exp_->UnEx(),
+        new tree::ConstExp(8)))));
+  return new tr::ExpAndTy(exp_mem,((type::ArrayTy*)var->ty_)->ty_->ActualTy());
 }
 
 tr::ExpAndTy *VarExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -369,12 +378,23 @@ tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---RecordExp---"<<std::endl;
 
-  tree::ExpList *elist=new tree::ExpList();
+  auto *elist=new tree::ExpList();
   for (auto *x : fields_->GetList()){
     tree::Exp *e=x->exp_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
     elist->Append(e);
   }
+  auto *exp = new tree::ExpList();
+  exp->Append(new tree::ConstExp(elist->GetList().size()*8));
   
+  auto *t=temp::TempFactory::NewTemp();
+  tree::Stm *stm = new tree::MoveStm(new tree::TempExp(t), frame::ExternalCall("alloc_record", exp));
+  int cnt = 0;
+  for(auto exp : elist->GetList()){
+    stm = new tree::SeqStm(stm, new tree::MoveStm(
+      new tree::MemExp(new tree::BinopExp(tree::PLUS_OP, new tree::TempExp(t), new tree::ConstExp(8*cnt))), exp));
+    cnt++;
+  }
+  return new tr::ExpAndTy(new tr::ExExp(new tree::EseqExp(stm, new tree::TempExp(t))), tenv->Look(typ_)->ActualTy());
 }
 
 tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -616,7 +636,7 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   tree::ExpList *args=new tree::ExpList();
   args->Append(arr_size);
   args->Append(arr_init);
-  tr::Exp *exp = new tr::ExExp(frame::ExternalCall("initArray", args));
+  tr::Exp *exp = new tr::ExExp(frame::ExternalCall("init_array", args));
   return new tr::ExpAndTy(exp,tenv->Look(typ_)->ActualTy()); 
 }
 

@@ -177,21 +177,21 @@ tree::Exp *ExternalCall(std::string_view s, tree::ExpList *args) {
 tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   std::cout<<"---ProcEntryExit1---"<<std::endl;
 
-  int count = 0;
+  int cnt = 0;
   tree::Stm* s=new tree::ExpStm(new tree::ConstExp(0));
   for(auto formal:frame->formals_)
   {
-    if(count < 6){
+    if(cnt < 6){
       s = new tree::SeqStm(s, 
         new tree::MoveStm(formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
-          new tree::TempExp(reg_manager->GetRegister(count))));
+          new tree::TempExp(reg_manager->GetRegister(cnt))));
     }
     else{
       s = new tree::SeqStm(s, new tree::MoveStm(
         formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
-          new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::TempExp(reg_manager->FramePointer()),new tree::ConstExp((frame->formals_.size()-count)*8)))));
+          new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::TempExp(reg_manager->FramePointer()),new tree::ConstExp((frame->formals_.size()-cnt)*8)))));
     }
-    count++;
+    cnt++;
   }
   return new tree::SeqStm(s, stm);
 }
@@ -199,19 +199,19 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
 assem::InstrList *ProcEntryExit2(assem::InstrList *body) { 
   std::cout<<"---ProcEntryExit2---"<<std::endl;
 
-  temp::TempList *returnSink = reg_manager->ReturnSink();
-  body->Append(new assem::OperInstr("", nullptr, returnSink, nullptr));
+  body->Append(new assem::OperInstr("", nullptr, reg_manager->ReturnSink(), nullptr));
   return body; 
   }
 
 assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   std::cout<<"---ProcEntryExit3---"<<std::endl;
-    int size = -frame->offset - 8;
+    int size = -frame->offset;
     
     std::ostringstream prolog;
+    //.set xx_framesize, size
     prolog << frame->name_->Name() << ":\n";
     prolog << ".set " << frame->name_->Name() << "_framesize, " << size << "\n";
-    prolog << "subq $" << -frame->offset << ", %rsp\n";
+    prolog << "subq $" << size << ", %rsp\n";
 
     std::ostringstream epilog;
     epilog << "addq $" << size << ", %rsp\n";

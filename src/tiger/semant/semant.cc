@@ -281,7 +281,7 @@ type::Ty *BreakExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab4 code here */
   if(labelcount==0)
     errormsg->Error(pos_, "loop variable can't be assigned");
-  return type::IntTy::Instance(); 
+  return type::VoidTy::Instance(); 
 }
 
 type::Ty *LetExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
