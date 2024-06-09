@@ -180,11 +180,11 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
   int cnt = 0;
   tree::Stm* s=new tree::ExpStm(new tree::ConstExp(0));
   auto argRegs = reg_manager->ArgRegs()->GetList();
-  auto regsize = argRegs.size();
+  // auto regsize = argRegs.size();
   auto regIter = argRegs.begin();
   for(auto formal:frame->formals_)
   {
-    if(cnt < regsize){
+    if(cnt < 6){
       s = new tree::SeqStm(s, 
         new tree::MoveStm(formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
           new tree::TempExp(*regIter)));

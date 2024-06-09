@@ -1,8 +1,7 @@
 #include "tiger/codegen/codegen.h"
-#include <iostream>
-#include <cassert>
+
 #include <sstream>
-#include <string_view>
+#include <iostream>
 
 extern frame::RegManager *reg_manager;
 
@@ -15,48 +14,33 @@ constexpr int maxlen = 1024;
 
 namespace cg {
 
-void saveregs(assem::InstrList *list,std::vector<temp::Temp *> tmp_saved){
-  for(auto reg: reg_manager->CalleeSaves()->GetList()){
-    temp::Temp *tmp = temp::TempFactory::NewTemp();
-    tmp_saved.push_back(tmp);
-    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(tmp), new temp::TempList(reg)));
-  }
-}
-
-void restoreregs(assem::InstrList *list,std::vector<temp::Temp *> tmp_saved){
-  int i = 0;
-  for(auto reg: reg_manager->CalleeSaves()->GetList()){
-    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(reg), new temp::TempList(tmp_saved[i])));
-  }
-}
-
 void CodeGen::Codegen() {
   /* TODO: Put your lab5 code here */
-  std::cout<<"-----Codegen-----"<<std::endl;
   fs_= frame_->name_->Name() + "_framesize";
-  auto *list = new assem::InstrList();
-  std::vector<temp::Temp *> tmp_saved;
-  //saveregs(list,tmp_saved)
-  for(auto x: reg_manager->CalleeSaves()->GetList()){
+  assem::InstrList *instr_list = new assem::InstrList();
+  std::list<tree::Stm *> stm_list = traces_->GetStmList()->GetList();
+  std::vector<temp::Temp *> tmp_store;
+  
+  // save callee-saved regs
+  for(auto reg: reg_manager->CalleeSaves()->GetList()){
     temp::Temp *tmp = temp::TempFactory::NewTemp();
-    tmp_saved.push_back(tmp);
-    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(tmp), new temp::TempList(x)));
+    tmp_store.push_back(tmp);
+    instr_list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(tmp), new temp::TempList(reg)));
   }
-  
-  for (auto stm : traces_->GetStmList()->GetList())
-    stm->Munch(*list,fs_);
-  
-  //restoreregs(list,tmp_saved)
+
+  for(auto stm : stm_list){
+    stm->Munch(*instr_list, fs_);
+  }
+
+  // restore save callee-saved regs
   int i = 0;
-  for(auto x: reg_manager->CalleeSaves()->GetList()){
-    list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(x), new temp::TempList(tmp_saved[i++])));
+  for(auto reg: reg_manager->CalleeSaves()->GetList()){
+    instr_list->Append(new assem::MoveInstr(std::string("movq `s0, `d0"), new temp::TempList(reg), new temp::TempList(tmp_store[i])));
+    i++;
   }
 
-  //std::unique_ptr<AssemInstr> assem_instr_;
-  assem_instr_ = std::make_unique<AssemInstr>(list);
-
+  assem_instr_ = std::make_unique<AssemInstr>(instr_list);
   frame::ProcEntryExit2(assem_instr_->GetInstrList());
-  /* End for lab5 code */
 }
 
 void AssemInstr::Print(FILE *out, temp::Map *map) const {
@@ -67,39 +51,7 @@ void AssemInstr::Print(FILE *out, temp::Map *map) const {
 } // namespace cg
 
 namespace tree {
-
 /* TODO: Put your lab5 code here */
-/**
- * Generate code for passing arguments
- * @param args argument list
- * @param instr_holder instruction holder
- * @return temp list to hold arguments
- */
-temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list, std::string_view fs) {
-  std::cout<<"-----ExpList-----"<<std::endl;
-
-  temp::Temp *ret=temp::TempFactory::NewTemp();
-  int num=exp_list_.size();
-  auto *tplist=new temp::TempList();
-  for(auto x :exp_list_){
-    temp::Temp *local_ret=x->Munch(instr_list,fs);
-    tplist->Append(local_ret);
-    if(tplist->GetList().size()<=num){
-      instr_list.Append(new assem::MoveInstr(
-          "movq `s0, `d0" , 
-          new temp::TempList(reg_manager->ArgRegs()->NthTemp(tplist->GetList().size()-1)), 
-          new temp::TempList({local_ret})
-          ));
-    }
-    else{
-      std::string s_asm="movq `s0"+std::to_string((num-tplist->GetList().size())*8)+"%rsp";
-      instr_list.Append(new assem::MoveInstr(s_asm , nullptr, new temp::TempList({local_ret})));
-
-    }
-  }
-  return tplist;
-  /* End for lab5 code */
-}
 
 void SeqStm::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
@@ -376,14 +328,48 @@ temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
   std::cout<<"-----CallExp-----"<<std::endl;
-  args_->MunchArgs(instr_list, fs);
-  std::string s_asm="call "+((tree::NameExp *)fun_)->name_->Name();
+  auto *tmp_list=args_->MunchArgs(instr_list, fs);
   temp::Temp *ret=temp::TempFactory::NewTemp();
-  instr_list.Append(new assem::OperInstr(s_asm , reg_manager->CallerSaves(),reg_manager->ArgRegs(), nullptr));
+  instr_list.Append(new assem::OperInstr("call "+((tree::NameExp *)fun_)->name_->Name() , reg_manager->CallerSaves(),reg_manager->ArgRegs(), nullptr));
+  int tmp_num = tmp_list->GetList().size();
+  if(tmp_num-6>0){
+    std::string instr = "addq $" + std::to_string((tmp_num-6)*8)+", `d0";
+    instr_list.Append(new assem::OperInstr(instr, new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
+  }
+
   instr_list.Append(new assem::MoveInstr("movq `s0, `d0" , new temp::TempList({ret}), new temp::TempList({reg_manager->ReturnValue()})));
 
   return ret;
   /* End for lab5 code */
 }
 
-} // namespace tree还有高手？
+temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list, std::string_view fs) {
+  /* TODO: Put your lab5 code here */
+  std::list<tree::Exp *> args_list = GetList();
+  std::list<temp::Temp *> regs = reg_manager->ArgRegs()->GetList();
+  temp::TempList *alloced_args = new temp::TempList();
+
+  int regs_num = regs.size();
+  int count = 0;
+
+  for(auto arg:args_list)
+  {
+    temp::Temp *tmp = arg->Munch(instr_list, fs);
+    if(count < regs_num){
+      instr_list.Append(new assem::MoveInstr(std::string("movq `s0, `d0"), 
+        new temp::TempList(reg_manager->ArgRegs()->NthTemp(count)), new temp::TempList(tmp)));
+    }
+    else{
+      instr_list.Append(new assem::OperInstr(std::string("subq $8, %rsp"), 
+        new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
+      instr_list.Append(new assem::OperInstr(std::string("movq `s0, (%rsp)"),
+        new temp::TempList(reg_manager->StackPointer()), new temp::TempList(tmp), nullptr));
+    }
+    count++;
+    // whether in the reg or in the frame
+    alloced_args->Append(tmp);
+  }
+  return alloced_args;
+}
+
+} // namespace tree

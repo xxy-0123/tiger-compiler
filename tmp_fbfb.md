@@ -858,21 +858,29 @@ temp::TempList *ExpList::MunchArgs(assem::InstrList &instr_list, std::string_vie
   std::cout<<"-----ExpList-----"<<std::endl;
 
   temp::Temp *ret=temp::TempFactory::NewTemp();
-  int num=exp_list_.size();
   auto *tplist=new temp::TempList();
   for(auto x :exp_list_){
     temp::Temp *local_ret=x->Munch(instr_list,fs);
     tplist->Append(local_ret);
-    if(tplist->GetList().size()<=num){
+    if(tplist->GetList().size()<=6){
       instr_list.Append(new assem::MoveInstr(
           "movq `s0, `d0" , 
           new temp::TempList(reg_manager->ArgRegs()->NthTemp(tplist->GetList().size()-1)), 
-          new temp::TempList({local_ret})
+          new temp::TempList(local_ret)
           ));
     }
     else{
-      std::string s_asm="movq `s0"+std::to_string((num-tplist->GetList().size())*8)+"%rsp";
-      instr_list.Append(new assem::MoveInstr(s_asm , nullptr, new temp::TempList({local_ret})));
+      auto sp=reg_manager->StackPointer();
+      instr_list.Append(new assem::OperInstr(
+        "subq $8, %rsp", 
+        new temp::TempList(sp), 
+        nullptr, 
+        nullptr));
+      instr_list.Append(new assem::OperInstr(
+        "movq `s0, (%rsp)",
+        new temp::TempList(sp), 
+        new temp::TempList(local_ret), 
+        nullptr));
 
     }
   }
