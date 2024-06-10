@@ -105,7 +105,7 @@ public:
 
   explicit InFrameAccess(int offset) : offset(offset) { }
   tree::Exp *ToExp(tree::Exp *framePtr) const override{
-    return new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,framePtr,new tree::ConstExp(offset)));
+    return new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::ConstExp(offset),framePtr));
   }
   /* End for lab5 code */
 };
@@ -179,9 +179,9 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
 
   int cnt = 0;
   tree::Stm* s=new tree::ExpStm(new tree::ConstExp(0));
-  auto argRegs = reg_manager->ArgRegs()->GetList();
+  // auto argRegs = reg_manager->ArgRegs()->GetList();
   // auto regsize = argRegs.size();
-  auto regIter = argRegs.begin();
+  auto regIter = reg_manager->ArgRegs()->GetList().begin();
   for(auto formal:frame->formals_)
   {
     if(cnt < 6){
@@ -193,7 +193,7 @@ tree::Stm *ProcEntryExit1(frame::Frame *frame, tree::Stm *stm) {
     else{
       s = new tree::SeqStm(s, new tree::MoveStm(
         formal->ToExp(new tree::TempExp(reg_manager->FramePointer())),
-          new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::TempExp(reg_manager->FramePointer()),new tree::ConstExp((frame->formals_.size()-cnt)*8)))));
+        new tree::MemExp(new tree::BinopExp(tree::PLUS_OP,new tree::ConstExp(8*(frame->formals_.size()-cnt)),new tree::TempExp(reg_manager->FramePointer())))));
     }
     cnt++;
   }
@@ -209,7 +209,7 @@ assem::InstrList *ProcEntryExit2(assem::InstrList *body) {
 
 assem::Proc *ProcEntryExit3(frame::Frame *frame, assem::InstrList *body) {
   std::cout<<"---ProcEntryExit3---"<<std::endl;
-    int size = -frame->offset;
+    int size = -frame->offset-8;
     
     std::ostringstream prolog;
     //.set xx_framesize, size

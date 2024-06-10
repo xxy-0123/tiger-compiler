@@ -137,8 +137,8 @@ void ProgTr::Translate() {
 
   FillBaseVEnv();
   FillBaseTEnv();
-  temp::Label *main_label_ = temp::LabelFactory::NamedLabel("tigermain");
-  tr::ExpAndTy *exp_ty = absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(), main_label_, errormsg_.get());
+  auto *main_label_ = temp::LabelFactory::NamedLabel("tigermain");
+  auto *exp_ty = absyn_tree_->Translate(venv_.get(), tenv_.get(), main_level_.get(), main_label_, errormsg_.get());
   frags->PushBack(new frame::ProcFrag(frame::ProcEntryExit1(main_level_->frame_,exp_ty->exp_->UnNx()), main_level_->frame_));
 
 
@@ -180,14 +180,16 @@ tr::ExpAndTy *SimpleVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   auto *entry = venv->Look(sym_);
   auto *ventry = (env::VarEntry*)venv->Look(sym_);
   if(entry && typeid(*entry)==typeid(env::VarEntry))
-  {tree::Exp *exp = new tree::TempExp(reg_manager->FramePointer());
-  while(ventry->access_->level_!=level){
-    exp=level->frame_->formals_.front()->ToExp(exp);
-    level=level->parent_;
-  }
+  {
+    tree::Exp *exp = new tree::TempExp(reg_manager->FramePointer());
+    while(ventry->access_->level_!=level){
+      exp=level->frame_->formals_.front()->ToExp(exp);
+      level=level->parent_;
+    }
 
-  return new tr::ExpAndTy(new tr::ExExp(ventry->access_->access_->ToExp(exp)),ventry->ty_->ActualTy());}
-  else{
+    return new tr::ExpAndTy(new tr::ExExp(ventry->access_->access_->ToExp(exp)),ventry->ty_->ActualTy());}
+  else
+  {
     return new tr::ExpAndTy(nullptr, type::IntTy::Instance());
   }
   // tree::Exp *exp = new tree::TempExp(reg_manager->FramePointer());
@@ -204,16 +206,20 @@ tr::ExpAndTy *FieldVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                   err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
   std::cout<<"---FieldVar---"<<std::endl;
-  tr::ExpAndTy *var = var_->Translate(venv, tenv, level, label, errormsg);
+  
+  auto *var = var_->Translate(venv, tenv, level, label, errormsg);
   int cnt=0;
   for(auto *x:((type::RecordTy*)var->ty_)->fields_->GetList()){
     if(x->name_==sym_){
-      tr::Exp *exp = new tr::ExExp(new tree::MemExp(
-        new tree::BinopExp(tree::PLUS_OP,new tree::ConstExp(cnt*8),var->exp_->UnEx())
-      ));
+      tr::Exp *exp = new tr::ExExp(
+        new tree::MemExp(
+          new tree::BinopExp(
+            tree::PLUS_OP,
+            new tree::ConstExp(cnt*8),
+            var->exp_->UnEx())));
       return new tr::ExpAndTy(exp, x->ty_->ActualTy());
-      
-    }cnt++;
+    }
+    cnt++;
   }
   return new tr::ExpAndTy(nullptr, type::IntTy::Instance());
 }
@@ -224,15 +230,15 @@ tr::ExpAndTy *SubscriptVar::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---SubscriptVar---"<<std::endl;
 
-  tr::ExpAndTy *var = var_->Translate(venv, tenv, level, label, errormsg);
-  tr::ExpAndTy *subscript = subscript_->Translate(venv, tenv, level, label, errormsg);
-  tr::Exp *exp_mem=new tr::ExExp(new tree::MemExp(
+  auto *var = var_->Translate(venv, tenv, level, label, errormsg);
+  auto *subscript = subscript_->Translate(venv, tenv, level, label, errormsg);
+  tr::Exp *exp=new tr::ExExp(new tree::MemExp(
     new tree::BinopExp(tree::PLUS_OP,
       var->exp_->UnEx(),
       new tree::BinopExp(tree::MUL_OP,
-        subscript->exp_->UnEx(),
-        new tree::ConstExp(8)))));
-  return new tr::ExpAndTy(exp_mem,((type::ArrayTy*)var->ty_)->ty_->ActualTy());
+        new tree::ConstExp(8),
+        subscript->exp_->UnEx()))));
+  return new tr::ExpAndTy(exp,((type::ArrayTy*)var->ty_)->ty_->ActualTy());
 }
 
 tr::ExpAndTy *VarExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -268,9 +274,9 @@ tr::ExpAndTy *StringExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---StringExp---"<<std::endl;
 
-  auto *lib=temp::LabelFactory::NewLabel();
-  frags->PushBack(new frame::StringFrag(lib, str_));
-  return new tr::ExpAndTy(new tr::ExExp(new tree::NameExp(lib)), type::StringTy::Instance());
+  auto *lb=temp::LabelFactory::NewLabel();
+  frags->PushBack(new frame::StringFrag(lb, str_));
+  return new tr::ExpAndTy(new tr::ExExp(new tree::NameExp(lb)), type::StringTy::Instance());
 }
 
 tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
@@ -278,23 +284,25 @@ tr::ExpAndTy *CallExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
                                  err::ErrorMsg *errormsg) const {
   /* TODO: Put your lab5 code here */
   std::cout<<"---CallExp---"<<std::endl;
-
+  //翻译参数
   auto *elist=new tree::ExpList();
   for(auto *x : args_->GetList()){
     tree::Exp *e=x->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
     elist->Append(e);
   }
-  env::FunEntry *entry = (env::FunEntry *)venv->Look(func_);
+  auto *entry = (env::FunEntry *)venv->Look(func_);
   if(!entry->level_->parent_){
     tr::Exp *e = new tr::ExExp(frame::ExternalCall(func_->Name(), elist));
     return new tr::ExpAndTy(e, entry->result_);
   }
+  
   tree::Exp *staticlink = new tree::TempExp(reg_manager->FramePointer());
   while(level != entry->level_->parent_){
     staticlink = level->frame_->formals_.front()->ToExp(staticlink);
     level = level->parent_;
   }
   elist->Insert(staticlink);
+
   tr::Exp *e= new tr::ExExp(new tree::CallExp(new tree::NameExp(entry->label_), elist));
   return new tr::ExpAndTy(e, entry->result_);
 
@@ -321,51 +329,53 @@ tr::ExpAndTy *OpExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     case TIMES_OP:
       return new tr::ExpAndTy(new tr::ExExp(new tree::BinopExp(tree::MUL_OP,l,r)),type::IntTy::Instance());
     case LT_OP:{
-      cj=new tree::CjumpStm(tree::RelOp(tree::LT_OP),l,r,nullptr,nullptr);
-      temp::Label** trues=&cj->true_label_;
-      temp::Label** falses=&cj->false_label_;
-      tr::Exp *exp= new tr::CxExp(trues,falses,cj);
+      cj=new tree::CjumpStm(tree::LT_OP,l,r,nullptr,nullptr);
+      temp::Label** t=&cj->true_label_;
+      temp::Label** f=&cj->false_label_;
+      tr::Exp *exp= new tr::CxExp(t,f,cj);
       return new tr::ExpAndTy(exp, type::IntTy::Instance());
     }
 
     case LE_OP:{    
-      cj=new tree::CjumpStm(tree::RelOp::LE_OP,l,r,nullptr,nullptr);
-      temp::Label** trues=&cj->true_label_;
-      temp::Label** falses=&cj->false_label_;
-      tr::Exp *exp= new tr::CxExp(trues,falses,cj);
+      cj=new tree::CjumpStm(tree::LE_OP,l,r,nullptr,nullptr);
+      temp::Label** t=&cj->true_label_;
+      temp::Label** f=&cj->false_label_;
+      tr::Exp *exp= new tr::CxExp(t,f,cj);
       return new tr::ExpAndTy(exp, type::IntTy::Instance());}
     case GT_OP:
-{      cj=new tree::CjumpStm(tree::RelOp::GT_OP,l,r,nullptr,nullptr);
-      temp::Label** trues=&cj->true_label_;
-      temp::Label** falses=&cj->false_label_;
-      tr::Exp *exp= new tr::CxExp(trues,falses,cj);
+{      cj=new tree::CjumpStm(tree::GT_OP,l,r,nullptr,nullptr);
+      temp::Label** t=&cj->true_label_;
+      temp::Label** f=&cj->false_label_;
+      tr::Exp *exp= new tr::CxExp(t,f,cj);
       return new tr::ExpAndTy(exp, type::IntTy::Instance());}
     case GE_OP:
-      {cj=new tree::CjumpStm(tree::RelOp::GE_OP,l,r,nullptr,nullptr);
-      temp::Label** trues=&cj->true_label_;
-      temp::Label** falses=&cj->false_label_;
-      tr::Exp *exp= new tr::CxExp(trues,falses,cj);
+      {cj=new tree::CjumpStm(tree::GE_OP,l,r,nullptr,nullptr);
+      temp::Label** t=&cj->true_label_;
+      temp::Label** f=&cj->false_label_;
+      tr::Exp *exp= new tr::CxExp(t,f,cj);
       return new tr::ExpAndTy(exp, type::IntTy::Instance());}
     case EQ_OP:
-      {if(typeid(left_->Translate(venv,tenv,level,label,errormsg)->ty_) == typeid(type::StringTy)) {
+    {
+      // {if(typeid(left_->Translate(venv,tenv,level,label,errormsg)->ty_) == typeid(type::StringTy)) {
 
-      }
-      else{
-        cj=new tree::CjumpStm(tree::RelOp(tree::EQ_OP),l,r,nullptr,nullptr);
-        temp::Label** trues=&cj->true_label_;
-        temp::Label** falses=&cj->false_label_;
-        tr::Exp *exp= new tr::CxExp(trues,falses,cj);
+      // }
+      // else{
+        cj=new tree::CjumpStm(tree::EQ_OP,l,r,nullptr,nullptr);
+        temp::Label** t=&cj->true_label_;
+        temp::Label** f=&cj->false_label_;
+        tr::Exp *exp= new tr::CxExp(t,f,cj);
         return new tr::ExpAndTy(exp, type::IntTy::Instance());
-      }}
+      //  }
+      }
     case NEQ_OP:
       {if(typeid(left_->Translate(venv,tenv,level,label,errormsg)->ty_) == typeid(type::StringTy)) {
 
       }
       else{
         cj=new tree::CjumpStm(tree::RelOp(tree::NE_OP),l,r,nullptr,nullptr);
-        temp::Label** trues=&cj->true_label_;
-        temp::Label** falses=&cj->false_label_;
-        tr::Exp *exp= new tr::CxExp(trues,falses,cj);
+        temp::Label** t=&cj->true_label_;
+        temp::Label** f=&cj->false_label_;
+        tr::Exp *exp= new tr::CxExp(t,f,cj);
         return new tr::ExpAndTy(exp, type::IntTy::Instance());
       }}
   }
@@ -380,7 +390,7 @@ tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
   auto *elist=new tree::ExpList();
   for (auto *x : fields_->GetList()){
-    tree::Exp *e=x->exp_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
+    auto *e=x->exp_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
     elist->Append(e);
   }
   auto *exp = new tree::ExpList();
@@ -391,7 +401,14 @@ tr::ExpAndTy *RecordExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   int cnt = 0;
   for(auto exp : elist->GetList()){
     stm = new tree::SeqStm(stm, new tree::MoveStm(
-      new tree::MemExp(new tree::BinopExp(tree::PLUS_OP, new tree::TempExp(t), new tree::ConstExp(8*cnt))), exp));
+      new tree::MemExp(
+        new tree::BinopExp(
+          tree::PLUS_OP, 
+          new tree::TempExp(t), 
+          new tree::ConstExp(8*cnt)
+        )
+      ),
+    exp));
     cnt++;
   }
   return new tr::ExpAndTy(new tr::ExExp(new tree::EseqExp(stm, new tree::TempExp(t))), tenv->Look(typ_)->ActualTy());
@@ -403,7 +420,7 @@ tr::ExpAndTy *SeqExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---SeqExp---"<<std::endl;
 
-  tr::Exp *exp=nullptr;
+  tr::Exp *exp=nullptr;//!exp必须初始化
   type::Ty *ty;
   for(auto x:seq_->GetList()){
     if(!exp){
@@ -424,9 +441,9 @@ tr::ExpAndTy *AssignExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---AssignExp---"<<std::endl;
 
-  tree::Exp *ET_var = var_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
-  tree::Exp *ET_exp = exp_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
-  tr::Exp *exp=new tr::NxExp(new tree::MoveStm(ET_var,ET_exp));
+  auto *varet = var_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
+  auto *expet = exp_->Translate(venv,tenv,level,label,errormsg)->exp_->UnEx();
+  tr::Exp *exp=new tr::NxExp(new tree::MoveStm(varet,expet));
   return new tr::ExpAndTy(exp, type::VoidTy::Instance()); 
 
 }
@@ -438,43 +455,43 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   std::cout<<"---IfExp---"<<std::endl;
 
 
-  tr::ExpAndTy *testExpTy = test_->Translate(venv, tenv, level, label, errormsg);
-  tr::ExpAndTy *thenExpTy = then_->Translate(venv, tenv, level, label, errormsg);
-  tr::Exp *translatedExp;
+  auto *test_et = test_->Translate(venv, tenv, level, label, errormsg);
+  auto *then_et = then_->Translate(venv, tenv, level, label, errormsg);
+  tr::Exp *translated_exp;
 
 
    // 获取条件表达
-  tr::Cx testCx = testExpTy->exp_->UnCx(errormsg);
+  auto testcx = test_et->exp_->UnCx(errormsg);
   
-  temp::Label *trueLabel = temp::LabelFactory::NewLabel();
-  temp::Label *falseLabel = temp::LabelFactory::NewLabel();
-  temp::Label *mergeLabel = temp::LabelFactory::NewLabel();
-  temp::Temp *resultTemp = temp::TempFactory::NewTemp();
-  *testCx.trues_ = trueLabel;
-  *testCx.falses_ = falseLabel;
+  auto *tl = temp::LabelFactory::NewLabel();
+  auto *fl = temp::LabelFactory::NewLabel();
+  auto *ml = temp::LabelFactory::NewLabel();
+  auto *re_tmp = temp::TempFactory::NewTemp();
+  *testcx.trues_ = tl;
+  *testcx.falses_ = fl;
   
 
   if (elsee_) {
-    tr::ExpAndTy *elseExpTy = elsee_->Translate(venv, tenv, level, label, errormsg);
+    auto *else_et = elsee_->Translate(venv, tenv, level, label, errormsg);
 
     // 检查then和else的类型是否匹配
-      std::vector<temp::Label *> *jumpTargets = new std::vector<temp::Label *>{mergeLabel};
+      auto *j = new std::vector<temp::Label *>{ml};
 
-      translatedExp = new tr::ExExp(new tree::EseqExp(
-        testCx.stm_,
+      translated_exp = new tr::ExExp(new tree::EseqExp(
+        testcx.stm_,
         new tree::EseqExp(
-          new tree::LabelStm(trueLabel),
+          new tree::LabelStm(tl),
           new tree::EseqExp(
-            new tree::MoveStm(new tree::TempExp(resultTemp), thenExpTy->exp_->UnEx()),
+            new tree::MoveStm(new tree::TempExp(re_tmp), then_et->exp_->UnEx()),
             new tree::EseqExp(
-              new tree::JumpStm(new tree::NameExp(mergeLabel), jumpTargets),
+              new tree::JumpStm(new tree::NameExp(ml), j),
               new tree::EseqExp(
-                new tree::LabelStm(falseLabel),
+                new tree::LabelStm(fl),
                 new tree::EseqExp(
-                  new tree::MoveStm(new tree::TempExp(resultTemp), elseExpTy->exp_->UnEx()),
+                  new tree::MoveStm(new tree::TempExp(re_tmp), else_et->exp_->UnEx()),
                   new tree::EseqExp(
-                    new tree::JumpStm(new tree::NameExp(mergeLabel), jumpTargets),
-                    new tree::EseqExp(new tree::LabelStm(mergeLabel), new tree::TempExp(resultTemp))
+                    new tree::JumpStm(new tree::NameExp(ml), j),
+                    new tree::EseqExp(new tree::LabelStm(ml), new tree::TempExp(re_tmp))
                   )
                 )
               )
@@ -485,16 +502,16 @@ tr::ExpAndTy *IfExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
     
   } else {
 
-    translatedExp = new tr::NxExp(new tree::SeqStm(
-      testCx.stm_,
+    translated_exp = new tr::NxExp(new tree::SeqStm(
+      testcx.stm_,
       new tree::SeqStm(
-        new tree::LabelStm(trueLabel),
-        new tree::SeqStm(thenExpTy->exp_->UnNx(), new tree::LabelStm(falseLabel))
+        new tree::LabelStm(tl),
+        new tree::SeqStm(then_et->exp_->UnNx(), new tree::LabelStm(fl))
       )
     ));
   }
 
-  return new tr::ExpAndTy(translatedExp, thenExpTy->ty_->ActualTy());
+  return new tr::ExpAndTy(translated_exp, then_et->ty_->ActualTy());
 
 }
 
@@ -505,14 +522,14 @@ tr::ExpAndTy *WhileExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   std::cout<<"---WhileExp---"<<std::endl;
 
   auto *tst_translated=test_->Translate(venv, tenv, level, label, errormsg);
-  temp::Label *d_l = temp::LabelFactory::NewLabel();
-  tr::ExpAndTy *body_translated = body_->Translate(venv, tenv, level, d_l, errormsg);
-  temp::Label *b_l = temp::LabelFactory::NewLabel();
-  temp::Label *t_l = temp::LabelFactory::NewLabel();
+  auto *d_l = temp::LabelFactory::NewLabel();
+  auto *body_translated = body_->Translate(venv, tenv, level, d_l, errormsg);
+  auto *b_l = temp::LabelFactory::NewLabel();
+  auto *t_l = temp::LabelFactory::NewLabel();
   auto cx=tst_translated->exp_->UnCx(errormsg);
   *(cx.trues_)=b_l;
   *(cx.falses_)=d_l;
-  std::vector<temp::Label *> *j = new std::vector<temp::Label *>{t_l};
+  auto *j = new std::vector<temp::Label *>{t_l};
   tr::Exp *exp=new tr::NxExp(
       new tree::SeqStm(new tree::LabelStm(t_l),
         new tree::SeqStm(cx.stm_,
@@ -536,29 +553,29 @@ tr::ExpAndTy *ForExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   std::cout<<"---ForExp---"<<std::endl;
 
   // 翻译循环的下界和上界
-  tr::ExpAndTy *lo_translated = lo_->Translate(venv, tenv, level, label, errormsg);
-  tr::ExpAndTy *hi_translated = hi_->Translate(venv, tenv, level, label, errormsg);
-  tr::Access *access=tr::Access::AllocLocal(level,escape_);
+  auto *lo = lo_->Translate(venv, tenv, level, label, errormsg);
+  auto *hi = hi_->Translate(venv, tenv, level, label, errormsg);
+  auto *access=tr::Access::AllocLocal(level,escape_);
   // venv->BeginScope();
-  venv->Enter(var_,new env::VarEntry(access,lo_translated->ty_,true));
+  venv->Enter(var_,new env::VarEntry(access,lo->ty_,true));
   // venv->EndScope();
-  temp::Label *d_l = temp::LabelFactory::NewLabel();
-  tr::ExpAndTy *body_translated = body_->Translate(venv, tenv, level, d_l, errormsg);
+  auto *d_l = temp::LabelFactory::NewLabel();
+  auto *body = body_->Translate(venv, tenv, level, d_l, errormsg);
 
   
-  temp::Label *b_l = temp::LabelFactory::NewLabel();
-  temp::Label *t_l = temp::LabelFactory::NewLabel();
-  std::vector<temp::Label *> *j = new std::vector<temp::Label *>{t_l};
+  auto *b_l = temp::LabelFactory::NewLabel();
+  auto *t_l = temp::LabelFactory::NewLabel();
+  auto *j = new std::vector<temp::Label *>{t_l};
   
-  tree::Exp *fr_exp = access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer()));
+  auto *fr_exp = access->access_->ToExp(new tree::TempExp(reg_manager->FramePointer()));
 
   tr::Exp *exp=new tr::NxExp(
-    new tree::SeqStm(new tree::MoveStm(fr_exp,lo_translated->exp_->UnEx()),
+    new tree::SeqStm(new tree::MoveStm(fr_exp,lo->exp_->UnEx()),
       new tree::SeqStm(new tree::LabelStm(t_l),
-        new tree::SeqStm(new tree::CjumpStm(tree::LE_OP,fr_exp,hi_translated->exp_->UnEx(),b_l,d_l),
+        new tree::SeqStm(new tree::CjumpStm(tree::LE_OP,fr_exp,hi->exp_->UnEx(),b_l,d_l),
           new tree::SeqStm(new tree::LabelStm(b_l),
-            new tree::SeqStm(body_translated->exp_->UnNx(),
-              new tree::SeqStm(new tree::MoveStm(fr_exp, new tree::BinopExp(tree::BinOp::PLUS_OP, fr_exp, new tree::ConstExp(1))),
+            new tree::SeqStm(body->exp_->UnNx(),
+              new tree::SeqStm(new tree::MoveStm(fr_exp, new tree::BinopExp(tree::BinOp::PLUS_OP,new tree::ConstExp(1), fr_exp)),
                 new tree::SeqStm(new tree::JumpStm(new tree::NameExp(t_l),j),
                   new tree::LabelStm(d_l)
                 )
@@ -578,8 +595,8 @@ tr::ExpAndTy *BreakExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab5 code here */
   std::cout<<"---BreakExp---"<<std::endl;
 
-  std::vector<temp::Label *> *j = new std::vector<temp::Label *>;
-  j->push_back(label);
+  auto *j = new std::vector<temp::Label *>{label};
+  // j->push_back(label);
   auto *stm=new tree::JumpStm(new tree::NameExp(label), j);
   return new tr::ExpAndTy(new tr::NxExp(stm), type::VoidTy::Instance());
 }
@@ -603,7 +620,7 @@ tr::ExpAndTy *LetExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       stm = new tree::SeqStm(stm, x->Translate(venv, tenv, level, label, errormsg)->UnNx());
     }
   }
-    tr::ExpAndTy *let_body=body_->Translate(venv, tenv, level, label, errormsg);
+    auto *let_body=body_->Translate(venv, tenv, level, label, errormsg);
     if(!stm){
       exp = let_body->exp_->UnEx();
     }
@@ -631,12 +648,12 @@ tr::ExpAndTy *ArrayExp::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 //   return new tree::CallExp(new tree::NameExp(temp::LabelFactory::NamedLabel(s)),
 //                            args);
 // }
-  tree::Exp *arr_size=size_->Translate(venv, tenv, level, label, errormsg)->exp_->UnEx();
-  tree::Exp *arr_init=init_->Translate(venv, tenv, level, label, errormsg)->exp_->UnEx();
-  tree::ExpList *args=new tree::ExpList();
+  auto *arr_size=size_->Translate(venv, tenv, level, label, errormsg)->exp_->UnEx();
+  auto *arr_init=init_->Translate(venv, tenv, level, label, errormsg)->exp_->UnEx();
+  auto *args=new tree::ExpList();
   args->Append(arr_size);
   args->Append(arr_init);
-  tr::Exp *exp = new tr::ExExp(frame::ExternalCall("init_array", args));
+  auto *exp = new tr::ExExp(frame::ExternalCall("init_array", args));
   return new tr::ExpAndTy(exp,tenv->Look(typ_)->ActualTy()); 
 }
 
@@ -658,7 +675,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   // 第一步：处理函数头部，注册函数
   for(auto *x : functions_->GetList()){
     auto f_ty=x->params_->MakeFormalTyList(tenv,errormsg);
-    std::list<bool>f_escape;
+    std::list<bool>f_escape{true};
     int count = 1;
     for(auto *y:x->params_->GetList()){
         if (count > 6) {
@@ -666,9 +683,9 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
         }
       f_escape.push_back(y->escape_);
     }
-    f_escape.push_front(true);//静态链?
-    frame::Frame *newFrame=frame::NewFrame(x->name_,f_escape);
-    tr::Level *newLevel=new tr::Level(newFrame,level);
+    // f_escape.push_front(true);//静态链?
+    auto *newFrame=frame::NewFrame(x->name_,f_escape);
+    auto *newLevel=new tr::Level(newFrame,level);
 
     type::Ty *res_ty;
     if(x->result_){
@@ -694,7 +711,7 @@ tr::Exp *FunctionDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
       venv->Enter((*p_i)->name_, new env::VarEntry(new tr::Access(fentry->level_, *a_i), *f_i));
     }
 
-    tr::ExpAndTy *body_et = x->body_->Translate(venv, tenv, fentry->level_, fentry->label_, errormsg);
+    auto *body_et = x->body_->Translate(venv, tenv, fentry->level_, fentry->label_, errormsg);
     venv->EndScope();
     //创建返回值赋值语句并处理函数出口
     auto exp1 =new tree::TempExp(reg_manager->ReturnValue());
@@ -715,7 +732,7 @@ tr::Exp *VarDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
 
   auto *exp_ty=init_->Translate(venv, tenv, level, label, errormsg);
   // 将变量名和新创建的变量入口添加到变量环境中
-  tr::Access * v_access=tr::Access::AllocLocal(level,escape_);
+  auto * v_access=tr::Access::AllocLocal(level,escape_);
   venv->Enter(var_, new env::VarEntry(v_access, exp_ty->ty_));
 
   //将MoveStm节点包装在一个NxExp
@@ -730,9 +747,9 @@ tr::Exp *TypeDec::Translate(env::VEnvPtr venv, env::TEnvPtr tenv,
   std::cout<<"---TypeDec---"<<std::endl;
 
   auto type_list = types_->GetList();
-  for (auto *x : type_list) 
+  for(auto *x : type_list) 
     tenv->Enter(x->name_, new type::NameTy(x->name_, nullptr));
-  for (auto *x  : type_list) {
+  for(auto *x  : type_list) {
     type::NameTy *namety = (type::NameTy *) tenv->Look(x->name_);
     namety->ty_ = x->ty_->Translate(tenv, errormsg);
   }

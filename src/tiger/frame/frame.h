@@ -87,6 +87,7 @@ public:
   virtual std::list<frame::Access *> *Formals() const =0;
   temp::Label *name_;
   int offset=0;
+  
   virtual frame::Access *AllocLocal(bool escape)=0;
   virtual void AllocOutgoSpace(int size)=0;
   Frame(int wordsize, int offset,temp::Label *name, std::list<frame::Access *> *formals){};

@@ -1,4 +1,3 @@
-
 #include "tiger/absyn/absyn.h"
 #include "tiger/semant/semant.h"
 #include <set>
@@ -17,7 +16,7 @@ type::Ty *SimpleVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   /* TODO: Put your lab4 code here */
   env::EnvEntry *entry = venv->Look(sym_);
   if (entry && typeid(*entry) == typeid(env::VarEntry)) {
-      return (static_cast<env::VarEntry *>(entry))->ty_->ActualTy();
+      return ((env::VarEntry *)(entry))->ty_->ActualTy();
   } else {
     errormsg->Error(pos_, "undefined variable %s", sym_->Name().data());
   }
@@ -57,7 +56,7 @@ type::Ty *SubscriptVar::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
     if(typeid(*ty_sub)!=typeid(type::IntTy)){
       errormsg->Error(pos_, "IntTy error");
     }
-    else return (static_cast<type::ArrayTy*>(ty))->ty_->ActualTy();
+    else return ((type::ArrayTy*)(ty))->ty_->ActualTy();
   }
   return type::IntTy::Instance();
 }
@@ -220,7 +219,7 @@ type::Ty *WhileExp::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
   type::Ty *ty_test = test_->SemAnalyze(venv, tenv, labelcount, errormsg)->ActualTy();
   if(typeid(*ty_test)!=typeid(type::IntTy)){
     errormsg->Error(pos_, "test_ required");
-    return type::IntTy::Instance();
+    return type::VoidTy::Instance();
   }
   type::Ty *ty_bd = body_->SemAnalyze(venv, tenv, labelcount+1, errormsg)->ActualTy();
   if(typeid(*ty_bd)!=typeid(type::VoidTy)){
@@ -361,7 +360,9 @@ void FunctionDec::SemAnalyze(env::VEnvPtr venv, env::TEnvPtr tenv,
     auto formal_it = formals->GetList().begin();
     auto param_it = params->GetList().begin();
     for (; param_it != params->GetList().end(); formal_it++, param_it++)
+    {
       venv->Enter((*param_it)->name_, new env::VarEntry(*formal_it));
+    }
     type::Ty *ty;
     ty= function->body_->SemAnalyze(venv, tenv, labelcount, errormsg);
     type::Ty *ty_ret;

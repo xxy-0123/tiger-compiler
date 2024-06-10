@@ -1163,10 +1163,15 @@ temp::Temp *ConstExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
 temp::Temp *CallExp::Munch(assem::InstrList &instr_list, std::string_view fs) {
   /* TODO: Put your lab5 code here */
   std::cout<<"-----CallExp-----"<<std::endl;
-  args_->MunchArgs(instr_list, fs);
-  std::string s_asm="call "+((tree::NameExp *)fun_)->name_->Name();
+  auto *tmp_list=args_->MunchArgs(instr_list, fs);
   temp::Temp *ret=temp::TempFactory::NewTemp();
-  instr_list.Append(new assem::OperInstr(s_asm , reg_manager->CallerSaves(),reg_manager->ArgRegs(), nullptr));
+  instr_list.Append(new assem::OperInstr("call "+((tree::NameExp *)fun_)->name_->Name() , reg_manager->CallerSaves(),reg_manager->ArgRegs(), nullptr));
+  int tmp_num = tmp_list->GetList().size();
+  if(tmp_num-6>0){
+    std::string instr = "addq $" + std::to_string((tmp_num-6)*8)+", `d0";
+    instr_list.Append(new assem::OperInstr(instr, new temp::TempList(reg_manager->StackPointer()), nullptr, nullptr));
+  }
+
   instr_list.Append(new assem::MoveInstr("movq `s0, `d0" , new temp::TempList({ret}), new temp::TempList({reg_manager->ReturnValue()})));
 
   return ret;
